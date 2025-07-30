@@ -1,62 +1,89 @@
-# tests/test_main.py
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 import pytest
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from fastapi.testclient import TestClient
-from main import app, projects, Project, Dependency
+from unittest.mock import AsyncMock, patch
+from models.models import Dependency, Vulnerability
+# Fix import path
+
+
+from main import app
 
 client = TestClient(app)
 
+mock_requirements = "fastapi==0.100.0\nhttpx==0.24.1"
 
-def test_get_project_dependencies_create_and_fetch():
-    # Step 1: Create a project via API
-    create_payload = {
-        "id": 1,
+@pytest.fixture
+def create_project_payload():
+    return {
         "name": "Test Project",
-        "description": "A sample test project",
-        "dependencies": [
-            {"name": "fastapi", "version": "0.100.0", "is_vulnerable": False},
-            {"name": "httpx", "version": "0.24.1", "is_vulnerable": True}
-        ]
+        "description": "A test project",
+        "requirements": mock_requirements
     }
 
-    response = client.post("/projects/", json=create_payload)
-    assert response.status_code == 200
-
-    # Step 2: Fetch dependencies for the created project
-    dep_response = client.get(f"/projects/{create_payload['id']}/dependencies")
-    assert dep_response.status_code == 200
-    deps = dep_response.json()
-
-    assert isinstance(deps, list)
-    assert any(dep["name"] == "fastapi" for dep in deps)
-    assert any(dep["is_vulnerable"] is True for dep in deps if dep["name"] == "httpx")
-
-def test_get_project_dependencies_success():
-    # Setup mock project in memory
-    project_id = 1
-    dependency_list = [
-        Dependency(name="fastapi", version="0.100.0", is_vulnerable=False),
-        Dependency(name="httpx", version="0.24.1", is_vulnerable=True)
+@patch("services.services.parse_requirements")
+@patch("services.services.check_vulnerability", new_callable=AsyncMock)
+def test_create_project(mock_check_vuln, mock_parse, create_project_payload):
+    mock_parse.return_value = [
+        {"name": "fastapi", "version": "0.100.0"},
+        {"name": "httpx", "version": "0.24.1"}
     ]
-    projects[project_id] = Project(id=project_id, name="Test Project",description= "A sample test project", dependencies=dependency_list)
 
-    # Fetch dependencies
-    response = client.get(f"/projects/{project_id}/dependencies")
+    def fake_check_vuln(dep_dict):
+        return Dependency(
+            name="httpx",
+            version="0.24.1",
+            is_vulnerable=True,
+            vulnerabilities=[
+                {
+                "id": "PYSEC-2024-38",
+                "severity": "low",
+                "description": "test vuln"
+                }
+            ]
+        )
+
+    mock_check_vuln.side_effect = fake_check_vuln
+
+    response = client.post("/projects", json=create_project_payload)
     assert response.status_code == 200
     data = response.json()
-    assert isinstance(data, list)
-    assert data[0]["name"] == "fastapi"
-    assert data[1]["is_vulnerable"] is True
+    assert data["name"] == "Test Project"
+    assert len(data["dependencies"]) == 2
+    assert any(d["is_vulnerable"] for d in data["dependencies"])
+    
+def test_get_all_projects():
+    response = client.get("/projects")
+    assert response.status_code == 200
+    projects = response.json()
+    assert isinstance(projects, list)
 
+def test_get_project_dependencies_success():
+    # Assume project ID 1 was created in previous test
+    response = client.get("/projects/1/dependencies")
+    assert response.status_code == 200
+    deps = response.json()
+    assert any(d["name"] == "httpx" for d in deps)
 
 def test_get_project_dependencies_not_found():
-    # Ensure project doesn't exist
-    project_id = 9999
-    projects.pop(project_id, None)
-
-    response = client.get(f"/projects/{project_id}/dependencies")
-
+    response = client.get("/projects/9999/dependencies")
     assert response.status_code == 404
     assert response.json()["detail"] == "Project not found"
+
+def test_get_all_dependencies():
+    response = client.get("/dependencies")
+    assert response.status_code == 200
+    deps = response.json()
+    assert isinstance(deps, list)
+
+def test_get_dependency_by_name_success():
+    response = client.get("/dependencies/httpx")
+    assert response.status_code == 200
+    deps = response.json()
+    assert all(dep["name"].lower() == "httpx" for dep in deps)
+
+def test_get_dependency_by_name_not_found():
+    response = client.get("/dependencies/nonexistentlib")
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Dependency not found"

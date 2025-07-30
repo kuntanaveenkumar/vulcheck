@@ -13,12 +13,18 @@ curl -X POST http://localhost:8000/projects \
      -H "Content-Type: application/json" \
      -d '{"name": "My Project", "description": "Test project", "requirements": "fastapi==0.100.0\nhttpx==0.24.1"}'
 
+
+http://127.0.0.1:8000/docs
+
+http://127.0.0.1:8000/redoc
+
 http://127.0.0.1:8000/projects
 http://127.0.0.1:8000/projects/<Projectid>/dependencies  (Renders Project based dependencies)
 ex : http://127.0.0.1:8000/projects/1/dependencies 
 http://127.0.0.1:8000/dependencies (All dependencies)
 http://127.0.0.1:8000/dependencies/<dependencyname> 
 ex: http://127.0.0.1:8000/dependencies/httpx
+
 
 Running on local
 

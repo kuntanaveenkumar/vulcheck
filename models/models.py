@@ -35,7 +35,6 @@ class Dependency(BaseModel):
             raise ValueError("Vulnerable dependencies must include at least one vulnerability detail.")
         return value
 
-
 class Project(BaseModel):
     id: int
     name: str

@@ -32,17 +32,19 @@ async def check_vulnerability(dep: Dependency) -> Dependency:
         result = r.json()
 
     dep.is_vulnerable = "vulns" in result
-    #dep.vulnerabilities = [Vulnerability(**v) for v in result.get("vulns", [])]
+    
     dep.vulnerabilities = [Vulnerability(**simplify_vuln(v)) for v in result.get("vulns", [])]
 
     cache.set(cache_key, dep)
     return dep
+
 def simplify_vuln(raw: dict) -> dict:
     severity = raw.get("severity")
     if isinstance(severity, list) and severity:
-        raw["severity"] = severity[0].get("type", "UNKNOWN")  # Simplify to str
+        raw["severity"] = severity[0].get("type", "UNKNOWN") 
     return raw
-# async def check_vulnerability(dep: Dependency) -> Dependency:
+
+# async def check_vulnerabilityv1(dep: Dependency) -> Dependency:
 #     cache_key = f"{dep.name}@{dep.version}"
 #     cached = cache.get(cache_key)
 #     if cached:

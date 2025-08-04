@@ -32,21 +32,22 @@ def test_create_project(mock_check_vuln, mock_parse, create_project_payload):
 
     def fake_check_vuln(dep_dict):
         return Dependency(
-            name="httpx",
-            version="0.24.1",
+            name=dep_dict["name"],
+            version=dep_dict["version"],
             is_vulnerable=True,
             vulnerabilities=[
-                {
-                "id": "PYSEC-2024-38",
-                "severity": "low",
-                "description": "test vuln"
-                }
+                Vulnerability(
+                    id="PYSEC-2024-38",
+                    severity="LOW",
+                    description="test vuln"
+                )
             ]
         )
 
     mock_check_vuln.side_effect = fake_check_vuln
 
     response = client.post("/projects", json=create_project_payload)
+   
     assert response.status_code == 200
     data = response.json()
     assert data["name"] == "Test Project"

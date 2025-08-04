@@ -19,7 +19,7 @@ class Vulnerability(BaseModel):
     id: Optional[str] = Field(None, description="Unique ID of the vulnerability")
     description: Optional[str] = Field(None, description="Description of the vulnerability")
     severity: Optional[str] = Field(None, description="Severity (e.g. LOW, MEDIUM, HIGH)")
-
+    
 
 class Dependency(BaseModel):
     name: Annotated[str, Field(min_length=1, description="Dependency name")]
